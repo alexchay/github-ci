@@ -2,13 +2,7 @@ name: Validate shell scripts
 description: Validate shell scripts
 
 on:
-  workflow_dispatch:
-  push:
-    paths:
-      - scripts/**/*.sh
-  pull_request:
-    paths:
-      - scripts/**/*.sh
+  workflow_call:
 
 jobs:
   validate:

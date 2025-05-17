@@ -1,4 +1,4 @@
-name: Build and Push Docker Image
+name: Build and Push Docker image @ghcr.io
 description: Build and push Docker image to GitHub Container Registry (ghcr.io)
 
 on:
@@ -25,7 +25,7 @@ on:
 jobs:
 
   build_and_push:
-    name: Build and Push Docker Image
+    name: Build and Push Docker image @ghcr.io
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -61,7 +61,7 @@ jobs:
             FROM_IMAGE_TAG=${{ inputs.from_image_tag }}
           tags: local/image
 
-      - name: Test
+      - name: Test local image
         run: |
           docker run --rm \
             -v $(pwd)/:/home/user/build/ \

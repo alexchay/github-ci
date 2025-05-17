@@ -2,13 +2,7 @@ name: Validate Dockerfile
 description: Validate Dockerfile
 
 on:
-  workflow_dispatch:
-  push:
-    paths:
-      - Dockerfile
-  pull_request:
-    paths:
-      - Dockerfile
+  workflow_call:
 
 jobs:
   validate:
