@@ -1,16 +1,14 @@
-name: Validate
-description: Validate Dockerfile and shell scripts
+name: Validate Dockerfile
+description: Validate Dockerfile
 
 on:
   workflow_dispatch:
   push:
     paths:
       - Dockerfile
-      - scripts/**/*.sh
   pull_request:
     paths:
       - Dockerfile
-      - scripts/**/*.sh
 
 jobs:
   validate:
@@ -25,10 +23,3 @@ jobs:
           image: hadolint/hadolint:latest-alpine
           options:  -v ${{ github.workspace }}:/app
           run: sh -c 'hadolint --version && cd app && echo "Checking..." && hadolint Dockerfile && echo "Done"'
-
-      - name: Run ShellCheck
-        uses: addnab/docker-run-action@v3
-        with:
-          image: koalaman/shellcheck-alpine:latest
-          options:  -v ${{ github.workspace }}:/app
-          run: sh -c 'shellcheck --version && cd app && echo "Checking..." && shellcheck scripts/*.sh && echo "Done"'

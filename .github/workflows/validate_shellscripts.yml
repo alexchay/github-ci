@@ -1,0 +1,25 @@
+name: Validate shell scripts
+description: Validate shell scripts
+
+on:
+  workflow_dispatch:
+  push:
+    paths:
+      - scripts/**/*.sh
+  pull_request:
+    paths:
+      - scripts/**/*.sh
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Run ShellCheck
+        uses: addnab/docker-run-action@v3
+        with:
+          image: koalaman/shellcheck-alpine:latest
+          options:  -v ${{ github.workspace }}:/app
+          run: sh -c 'shellcheck --version && cd app && echo "Checking..." && shellcheck scripts/*.sh && echo "Done"'

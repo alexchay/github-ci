@@ -1,5 +1,5 @@
-name: Build Image
-description: Build and push Docker image to Docker Hub
+name: Build and Push Docker Image
+description: Build and push Docker image to GitHub Container Registry (ghcr.io)
 
 on:
   workflow_call:
@@ -24,7 +24,8 @@ on:
 
 jobs:
 
-  build_image:
+  build_and_push:
+    name: Build and Push Docker Image
     runs-on: ubuntu-latest
     permissions:
       contents: read
@@ -38,6 +39,8 @@ jobs:
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v3
+        with:
+          platforms: linux/amd64,linux/arm64
 
       - name: Docker meta
         id: meta
@@ -48,7 +51,7 @@ jobs:
           tags: |
             type=raw,value=${{ inputs.image_tag }}
 
-      - name: Build
+      - name: Build local image to test
         uses: docker/build-push-action@v4
         with:
           context: .
@@ -81,20 +84,21 @@ jobs:
           echo $manifests_shas
           echo "multi-arch-digests=$manifests_shas" >> $GITHUB_OUTPUT
 
-      - name: Delete old images
+      - name: Delete old image @ghcr.io
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
           package: "${{ inputs.image_name }}"
           delete-tags: "${{ inputs.image_tag }}"
 
-      - name: Build and Push Docker image to Docker Hub
+      - name: Build and Push Docker image
         uses: docker/build-push-action@v4
         with:
           context: .
           push: true
           platforms: linux/amd64,linux/arm64
+          tags: ${{ steps.meta.outputs.tags }}
+          labels: ${{ steps.meta.outputs.labels }}
           build-args: |
             FROM_IMAGE_NAME=${{ inputs.from_image_name }}
             FROM_IMAGE_TAG=${{ inputs.from_image_tag }}
-          tags: ${{ steps.meta.outputs.tags }}
 
