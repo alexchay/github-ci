@@ -24,12 +24,41 @@ on:
 
 jobs:
 
+  build_and_test:
+    name: Build and Test Docker image
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Build local image to test
+        uses: docker/build-push-action@v4
+        with:
+          context: .
+          load: true
+          build-args: |
+            FROM_IMAGE_NAME=${{ inputs.from_image_name }}
+            FROM_IMAGE_TAG=${{ inputs.from_image_tag }}
+          tags: local/image
+
+      - name: Test local image
+        run: |
+          docker run --rm \
+            -v $(pwd)/:/home/user/build/ \
+            -e IMAGE_TAG=${{ inputs.image_tag }} \
+            local/image bash \
+            -c "cd build && ./scripts/test.sh"
+
   build_and_push:
     name: Build and Push Docker image @ghcr.io
     runs-on: ubuntu-latest
+    needs: build_and_test
+    if: ${{ success() }}
     permissions:
       contents: read
       packages: write
+    concurrency:
+      group: "${{ github.repository_id }}-build-and-push"
 
     steps:
       - uses: actions/checkout@v4
@@ -51,24 +80,6 @@ jobs:
           tags: |
             type=raw,value=${{ inputs.image_tag }}
 
-      - name: Build local image to test
-        uses: docker/build-push-action@v4
-        with:
-          context: .
-          load: true
-          build-args: |
-            FROM_IMAGE_NAME=${{ inputs.from_image_name }}
-            FROM_IMAGE_TAG=${{ inputs.from_image_tag }}
-          tags: local/image
-
-      - name: Test local image
-        run: |
-          docker run --rm \
-            -v $(pwd)/:/home/user/build/ \
-            -e IMAGE_TAG=${{ inputs.image_tag }} \
-            local/image bash \
-            -c "cd build && ./scripts/test.sh"
-
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
         with:
@@ -79,7 +90,7 @@ jobs:
       - name: Fetch multi-platform version SHAs
         id: multi-arch-digests
         run: |
-          manifests_shas=$(docker manifest inspect ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ inputs.image_tag }} }} \
+          manifests_shas=$(docker manifest inspect ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ inputs.image_tag }} \
                               | jq -r '.manifests[] | .digest' | paste -s -d ', ' -)
           echo $manifests_shas
           echo "multi-arch-digests=$manifests_shas" >> $GITHUB_OUTPUT
