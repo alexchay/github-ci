@@ -72,16 +72,23 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - name: Setup Docker metadata
-        id: setup_docker_meta
+        id: setup_metadata
         run: |
+
           readarray -td, image_tags <<<"${{ inputs.image_tags }},"; unset 'image_tags[-1]';
           for image_tag in "${image_tags[@]}"; do
-            meta_tags+="type=raw,value=${image_tag#[[:space:]]}\n"
+            trimmed_tag=$(echo "$image_tag" | xargs)
+            META_TAGS+="type=raw,value=${trimmed_tag}\n"
+            DELETE_TAGS=${DELETE_TAGS:+$DELETE_TAGS,}${trimmed_tag}
           done
 
+          # META_TAGS contains a list of meta tags to be applied to the image.
           echo "meta_tags<<EOF" >> $GITHUB_OUTPUT
-          echo -e "$meta_tags" >> $GITHUB_OUTPUT
+          echo -e "$META_TAGS" >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
+
+          # DELETE_TAGS contains a comma-separated list of image tags to be deleted from the GitHub Container Registry.
+          echo "delete_tags=$DELETE_TAGS" >> $GITHUB_OUTPUT
 
       - name: Docker meta
         id: meta
@@ -90,7 +97,7 @@ jobs:
           images: |
             ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}
           tags: |
-            ${{ steps.setup_docker_meta.outputs.meta_tags}}
+            ${{ steps.setup_metadata.outputs.meta_tags}}
           flavor: |
             latest=false
 
@@ -105,7 +112,7 @@ jobs:
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
           package: "${{ inputs.image_name }}"
-          delete-tags: "${{ inputs.image_tags }}"
+          delete-tags: ${{ steps.setup_metadata.outputs.delete_tags}}
 
       - name: Build and Push Docker image
         uses: docker/build-push-action@v4
