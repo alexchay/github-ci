@@ -110,6 +110,7 @@ jobs:
 
       - name: Delete old image @ghcr.io
         uses: dataaxiom/ghcr-cleanup-action@v1
+        continue-on-error: true
         with:
           package: "${{ inputs.image_name }}"
           delete-tags: ${{ steps.setup_metadata.outputs.delete_tags}}
