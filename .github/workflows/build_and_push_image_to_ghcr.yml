@@ -16,8 +16,8 @@ on:
         description: "Name of the image to build (e.g., python-base)"
         required: true
         type: string
-      image_tag:
-        description: "Image tag to use for the build (e.g., 3.12)"
+      image_tags:
+        description: "Comma-separated list of tags to apply to the image (e.g., 3.12.2-slim, latest)"
         required: true
         type: string
 
@@ -25,7 +25,7 @@ on:
 jobs:
 
   build_and_test:
-    name: Build and Test Docker image
+    name: Test image ${{ inputs.image_name }}:${{ inputs.from_image_tag }}
     runs-on: ubuntu-latest
 
     steps:
@@ -45,12 +45,12 @@ jobs:
         run: |
           docker run --rm \
             -v $(pwd)/:/home/user/build/ \
-            -e IMAGE_TAG=${{ inputs.image_tag }} \
+            -e IMAGE_TAGS="${{ inputs.image_tags }}" \
             local/image bash \
             -c "cd build && ./scripts/test.sh"
 
   build_and_push:
-    name: Build and Push Docker image @ghcr.io
+    name: Push image ${{ inputs.image_name }}:${{ inputs.image_tags }} @ghcr.io
     runs-on: ubuntu-latest
     needs: build_and_test
     if: ${{ success() }}
@@ -71,6 +71,18 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
 
+      - name: Setup Docker metadata
+        id: setup_docker_meta
+        run: |
+          readarray -td, image_tags <<<"${{ inputs.image_tags }},"; unset 'image_tags[-1]';
+          for image_tag in "${image_tags[@]}"; do
+            meta_tags+="type=raw,value=${image_tag#[[:space:]]}\n"
+          done
+
+          echo "meta_tags<<EOF" >> $GITHUB_OUTPUT
+          echo -e "$meta_tags" >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+
       - name: Docker meta
         id: meta
         uses: docker/metadata-action@v5
@@ -78,7 +90,9 @@ jobs:
           images: |
             ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}
           tags: |
-            type=raw,value=${{ inputs.image_tag }}
+            ${{ steps.setup_docker_meta.outputs.meta_tags}}
+          flavor: |
+            latest=false
 
       - name: Log in to GitHub Container Registry
         uses: docker/login-action@v3
@@ -87,19 +101,11 @@ jobs:
           username: ${{ github.repository_owner }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Fetch multi-platform version SHAs
-        id: multi-arch-digests
-        run: |
-          manifests_shas=$(docker manifest inspect ghcr.io/${{ github.repository_owner }}/${{ inputs.image_name }}:${{ inputs.image_tag }} \
-                              | jq -r '.manifests[] | .digest' | paste -s -d ', ' -)
-          echo $manifests_shas
-          echo "multi-arch-digests=$manifests_shas" >> $GITHUB_OUTPUT
-
       - name: Delete old image @ghcr.io
         uses: dataaxiom/ghcr-cleanup-action@v1
         with:
           package: "${{ inputs.image_name }}"
-          delete-tags: "${{ inputs.image_tag }}"
+          delete-tags: "${{ inputs.image_tags }}"
 
       - name: Build and Push Docker image
         uses: docker/build-push-action@v4
