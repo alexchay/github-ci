@@ -44,10 +44,10 @@ jobs:
       - name: Test local image
         run: |
           docker run --rm \
-            -v $(pwd)/:/home/user/build/ \
+            -v $(pwd)/:/build/ \
             -e IMAGE_TAGS="${{ inputs.image_tags }}" \
             local/image bash \
-            -c "cd build && ./scripts/test.sh"
+            -c "cd /build && ./scripts/test.sh"
 
   build_and_push:
     name: Push image ${{ inputs.image_name }}:${{ inputs.image_tags }} @ghcr.io
