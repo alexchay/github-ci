@@ -33,14 +33,6 @@ jobs:
         with:
           platforms: linux/amd64
 
-      - name: Cache Docker layers
-        uses: actions/cache@v4
-        with:
-          path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
-          restore-keys: |
-            ${{ runner.os }}-buildx-
-
       - name: Download build-env artifact
         uses: actions/download-artifact@v4
         with:
@@ -55,6 +47,14 @@ jobs:
           cat build_args.txt >> $GITHUB_OUTPUT
           echo "EOF" >> $GITHUB_OUTPUT
           cat $GITHUB_OUTPUT
+
+      - name: Cache Docker layers
+        uses: actions/cache@v4
+        with:
+          path: /tmp/.buildx-cache
+          key: ${{ runner.os }}-buildx-${{ hashFiles('.build.env ') }}
+          restore-keys: |
+            ${{ runner.os }}-buildx-
 
       - name: Build local image to test
         uses: docker/build-push-action@v4
@@ -77,7 +77,7 @@ jobs:
         uses: anchore/sbom-action@v0
         with:
           image: local/image
-          artifact-name: local-image:(${{ inputs.build_image_tags }}).spdx.json
+          artifact-name: local-image.${{ hashFiles('.build.env ') }}.spdx.json
 
 
   build_and_push:
@@ -102,11 +102,16 @@ jobs:
         with:
           platforms: linux/amd64,linux/arm64
 
+      - name: Download build-env artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.build_env_file }}
+
       - name: Cache Docker layers
         uses: actions/cache@v4
         with:
           path: /tmp/.buildx-cache
-          key: ${{ runner.os }}-buildx-${{ github.sha }}
+          key: ${{ runner.os }}-buildx-${{ hashFiles('.build.env ') }}
           restore-keys: |
             ${{ runner.os }}-buildx-
 
