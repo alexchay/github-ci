@@ -4,17 +4,10 @@ description: Build and push Docker image to GitHub Container Registry (ghcr.io)
 on:
   workflow_call:
     inputs:
-      event_name:
-        required: true
+      build_env_file:
+        required: false
         type: string
-      base_image_name:
-        description: "Base image name to use for the build (e.g., python)"
-        required: true
-        type: string
-      base_image_tag:
-        description: "Base image tag to use for the build (e.g., 3.12.2-slim)"
-        required: true
-        type: string
+        default: ".github/.build.env"
       build_image_name:
         description: "Name of the image to build (e.g., python-base)"
         required: true
@@ -23,14 +16,14 @@ on:
         description: "Comma-separated list of tags to apply to the image (e.g., 3.12.2-slim, latest)"
         required: true
         type: string
-
-
 jobs:
 
   build_and_test:
     name: Test image ${{ inputs.build_image_name }}:${{ inputs.build_image_tag }}
     runs-on: ubuntu-latest
 
+    outputs:
+      build_args: ${{ steps.buildargs.outputs.BUILD_ARGS }}
     steps:
       - uses: actions/checkout@v4
 
@@ -48,14 +41,27 @@ jobs:
           restore-keys: |
             ${{ runner.os }}-buildx-
 
+      - name: Download build-env artifact
+        uses: actions/download-artifact@v4
+        with:
+          name: ${{ inputs.build_env_file }}
+
+      - name: Prepare build args from .build.env
+        id: buildargs
+        run: |
+          # Remove comments and empty lines, format as build-args
+          grep -v '^\s*#' .build.env | grep -v '^\s*$' > build_args.txt
+          echo "BUILD_ARGS<<EOF" >> $GITHUB_OUTPUT
+          cat build_args.txt >> $GITHUB_OUTPUT
+          echo "EOF" >> $GITHUB_OUTPUT
+          cat $GITHUB_OUTPUT
+
       - name: Build local image to test
         uses: docker/build-push-action@v4
         with:
           context: .
           load: true
-          build-args: |
-            BASE_IMAGE_NAME=${{ inputs.base_image_name }}
-            BASE_IMAGE_TAG=${{ inputs.base_image_tag }}
+          build-args: ${{ steps.buildargs.outputs.BUILD_ARGS }}
           tags: local/image
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
@@ -63,9 +69,8 @@ jobs:
       - name: Test local image
         run: |
           docker run --rm \
-            -v $(pwd)/:/build/ \
-            -w /build \
-            --entrypoint "./scripts/test-image.sh"
+            -v $(pwd)/:/build/ -w /build \
+            --entrypoint "./scripts/test-image.sh" \
             local/image
 
       - name: Scan the image
@@ -78,7 +83,7 @@ jobs:
     name: Push image ${{ inputs.build_image_name }}:${{ inputs.build_image_tags }} @ghcr.io
     runs-on: ubuntu-latest
     needs: build_and_test
-    if: ${{ success() }} && (inputs.event_name != 'pull_request')
+    if: ${{ success() && (startsWith(github.ref, 'refs/tags/' || github.event_name == 'schedule') || github.event_name == 'workflow_dispatch') }}
     permissions:
       contents: read
       packages: write
@@ -156,9 +161,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
           tags: ${{ steps.meta.outputs.tags }}
           labels: ${{ steps.meta.outputs.labels }}
-          build-args: |
-            BASE_IMAGE_NAME=${{ inputs.base_image_name }}
-            BASE_IMAGE_TAG=${{ inputs.base_image_tag }}
+          build-args: ${{ needs.build_and_test.outputs.build_args }}
           cache-from: type=local,src=/tmp/.buildx-cache
           cache-to: type=local,dest=/tmp/.buildx-cache
           sbom: true
