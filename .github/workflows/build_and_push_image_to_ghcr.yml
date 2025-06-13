@@ -19,7 +19,7 @@ on:
 jobs:
 
   build_and_test:
-    name: Test image ${{ inputs.build_image_name }}:${{ inputs.build_image_tag }}
+    name: Test image ${{ inputs.build_image_name }}:${{ inputs.build_image_tags }}
     runs-on: ubuntu-latest
 
     outputs:
