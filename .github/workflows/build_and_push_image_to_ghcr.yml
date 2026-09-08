@@ -34,7 +34,7 @@ jobs:
           platforms: linux/amd64
 
       - name: Download build-env artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.build_env_file }}
 
@@ -103,7 +103,7 @@ jobs:
           platforms: linux/amd64,linux/arm64
 
       - name: Download build-env artifact
-        uses: actions/download-artifact@v4
+        uses: actions/download-artifact@v8
         with:
           name: ${{ inputs.build_env_file }}
 
