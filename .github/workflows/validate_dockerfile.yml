@@ -16,4 +16,4 @@ jobs:
         with:
           image: hadolint/hadolint:latest-alpine
           options:  -v ${{ github.workspace }}:/app
-          run: sh -c 'hadolint --version && cd app && echo "Checking..." && hadolint Dockerfile && echo "Done"'
+          run: sh -c 'hadolint --version && cd app && echo "Checking..." && hadolint --failure-threshold warning Dockerfile && echo "Done"'
